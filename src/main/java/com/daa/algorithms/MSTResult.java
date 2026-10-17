@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+
 public final class MSTResult {
     private final List<Edge> edges;
     private final long totalWeight;

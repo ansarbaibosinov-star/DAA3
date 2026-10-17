@@ -179,4 +179,5 @@ class MSTTest {
             assertEquals(1, prim.getComponents());
         }
     }
+
 }
