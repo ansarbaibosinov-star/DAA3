@@ -12,6 +12,7 @@ public final class Edge {
         this.weight = weight;
     }
 
+
     public int getFrom() {
         return from;
     }

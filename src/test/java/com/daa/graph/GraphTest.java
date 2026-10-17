@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GraphTest {
 
+
     @Test
     void shouldCreateGraphWithIsolatedVertices() {
         Graph graph = new Graph(4, false);
@@ -113,4 +114,5 @@ class GraphTest {
                 () -> edgeList.clear()
         );
     }
+
 }
