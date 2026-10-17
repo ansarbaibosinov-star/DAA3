@@ -1,4 +1,3 @@
-
 package com.daa.graph;
 
 public final class Edge {
