@@ -179,5 +179,29 @@ class MSTTest {
             assertEquals(1, prim.getComponents());
         }
     }
+    @Test
+    void metricsAreUpdatedByMstAlgorithms() {
+        Graph graph = new Graph(3, false);
+        graph.addEdge(0, 1, 4);
+        graph.addEdge(1, 2, 2);
+        graph.addEdge(0, 2, 5);
+
+        Metrics kruskalMetrics = new Metrics();
+        MSTResult kruskalResult =
+                Kruskal.findMST(graph, kruskalMetrics);
+
+        assertEquals(6, kruskalResult.getTotalWeight());
+        assertTrue(kruskalMetrics.getDsuOps() > 0);
+        assertEquals(3, kruskalMetrics.getEdgeScans());
+        assertTrue(kruskalMetrics.getComparisons() > 0);
+
+        Metrics primMetrics = new Metrics();
+        MSTResult primResult = Prim.findMST(graph, primMetrics);
+
+        assertEquals(6, primResult.getTotalWeight());
+        assertEquals(0, primMetrics.getDsuOps());
+        assertTrue(primMetrics.getEdgeScans() > 0);
+        assertTrue(primMetrics.getComparisons() > 0);
+    }
 
 }

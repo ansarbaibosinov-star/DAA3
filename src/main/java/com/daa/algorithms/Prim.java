@@ -1,6 +1,5 @@
 package com.daa.algorithms;
 
-
 import com.daa.graph.Edge;
 import com.daa.graph.Graph;
 
@@ -15,6 +14,10 @@ public final class Prim {
     }
 
     public static MSTResult findMST(Graph graph) {
+        return findMST(graph, null);
+    }
+
+    public static MSTResult findMST(Graph graph, Metrics metrics) {
         if (graph.isDirected()) {
             throw new IllegalArgumentException(
                     "Prim requires an undirected graph"
@@ -22,18 +25,21 @@ public final class Prim {
         }
 
         int n = graph.getVertexCount();
-
         boolean[] inTree = new boolean[n];
         List<Edge> selectedEdges = new ArrayList<>();
 
-        PriorityQueue<Edge> queue = new PriorityQueue<>(
-                Comparator.comparingInt(Edge::getWeight)
-        );
+        Comparator<Edge> comparator = (a, b) -> {
+            if (metrics != null) {
+                metrics.recordComparison();
+            }
+            return Integer.compare(a.getWeight(), b.getWeight());
+        };
+
+        PriorityQueue<Edge> queue = new PriorityQueue<>(comparator);
 
         long totalWeight = 0;
         int components = 0;
 
-        // Start at vertex 0, then process other components if needed.
         for (int start = 0; start < n; start++) {
             if (inTree[start]) {
                 continue;
@@ -41,24 +47,19 @@ public final class Prim {
 
             components++;
             inTree[start] = true;
-
-            for (Edge edge : graph.getAdjacentEdges(start)) {
-                queue.offer(edge);
-            }
+            addAdjacentEdges(graph, start, inTree, queue, metrics);
 
             while (!queue.isEmpty()) {
                 Edge edge = queue.poll();
 
-                int from = edge.getFrom();
-                int to = edge.getTo();
+                boolean fromInside = inTree[edge.getFrom()];
+                boolean toInside = inTree[edge.getTo()];
 
-                // Ignore edges whose endpoints are both already in the tree.
-                if (inTree[from] && inTree[to]) {
+                if (fromInside && toInside) {
                     continue;
                 }
 
-                // An edge leaving the current tree must have one new endpoint.
-                int next = inTree[from] ? to : from;
+                int next = fromInside ? edge.getTo() : edge.getFrom();
 
                 if (inTree[next]) {
                     continue;
@@ -68,18 +69,30 @@ public final class Prim {
                 selectedEdges.add(edge);
                 totalWeight += edge.getWeight();
 
-                for (Edge adjacent : graph.getAdjacentEdges(next)) {
-                    if (!inTree[adjacent.getTo()]) {
-                        queue.offer(adjacent);
-                    }
-                }
+                addAdjacentEdges(
+                        graph, next, inTree, queue, metrics
+                );
             }
         }
 
-        return new MSTResult(
-                selectedEdges,
-                totalWeight,
-                components
-        );
+        return new MSTResult(selectedEdges, totalWeight, components);
+    }
+
+    private static void addAdjacentEdges(
+            Graph graph,
+            int vertex,
+            boolean[] inTree,
+            PriorityQueue<Edge> queue,
+            Metrics metrics
+    ) {
+        for (Edge edge : graph.getAdjacentEdges(vertex)) {
+            if (metrics != null) {
+                metrics.recordEdgeScan();
+            }
+
+            if (!inTree[edge.getTo()]) {
+                queue.offer(edge);
+            }
+        }
     }
 }

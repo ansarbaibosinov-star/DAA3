@@ -11,6 +11,13 @@ public final class DAGShortestPath {
     }
 
     public static DAGShortestPathResult findShortestPaths(Graph graph) {
+        return findShortestPaths(graph, null);
+    }
+
+    public static DAGShortestPathResult findShortestPaths(
+            Graph graph,
+            Metrics metrics
+    ) {
         if (!graph.isDirected()) {
             throw new IllegalArgumentException(
                     "DAG shortest paths require a directed graph"
@@ -18,9 +25,8 @@ public final class DAGShortestPath {
         }
 
         int n = graph.getVertexCount();
-
-        // Get a topological order. It also detects cycles.
-        KahnResult topologicalResult = Kahn.topologicalSort(graph);
+        KahnResult topologicalResult =
+                Kahn.topologicalSort(graph, metrics);
 
         if (!topologicalResult.isAcyclic()) {
             throw new IllegalArgumentException(
@@ -34,9 +40,7 @@ public final class DAGShortestPath {
         Arrays.fill(distances, Long.MAX_VALUE);
         Arrays.fill(parents, -1);
 
-        // Every source vertex starts with distance zero.
         int[] inDegree = new int[n];
-
         for (Edge edge : graph.getEdges()) {
             inDegree[edge.getTo()]++;
         }
@@ -47,13 +51,17 @@ public final class DAGShortestPath {
             }
         }
 
-        // Process vertices in topological order.
         for (int vertex : topologicalResult.getOrder()) {
             if (distances[vertex] == Long.MAX_VALUE) {
                 continue;
             }
 
             for (Edge edge : graph.getAdjacentEdges(vertex)) {
+                if (metrics != null) {
+                    metrics.recordEdgeScan();
+                    metrics.recordComparison();
+                }
+
                 int next = edge.getTo();
                 long candidate = distances[vertex] + edge.getWeight();
 

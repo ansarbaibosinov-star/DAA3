@@ -13,6 +13,10 @@ public final class Kosaraju {
     }
 
     public static SCCResult findSCC(Graph graph) {
+        return findSCC(graph, null);
+    }
+
+    public static SCCResult findSCC(Graph graph, Metrics metrics) {
         if (!graph.isDirected()) {
             throw new IllegalArgumentException(
                     "Kosaraju requires a directed graph"
@@ -24,7 +28,7 @@ public final class Kosaraju {
         int[] finishOrder = new int[n];
         int orderSize = 0;
 
-        // First DFS: record vertices in finishing order.
+        // First DFS: store vertices by finishing order.
         for (int start = 0; start < n; start++) {
             if (visited[start]) {
                 continue;
@@ -33,6 +37,7 @@ public final class Kosaraju {
             Deque<DFSFrame> stack = new ArrayDeque<>();
             visited[start] = true;
             stack.push(new DFSFrame(start));
+            recordDepth(metrics, stack.size());
 
             while (!stack.isEmpty()) {
                 DFSFrame frame = stack.peek();
@@ -40,11 +45,15 @@ public final class Kosaraju {
 
                 if (frame.nextEdgeIndex < edges.size()) {
                     Edge edge = edges.get(frame.nextEdgeIndex++);
-                    int next = edge.getTo();
 
+                    recordEdgeScan(metrics);
+                    recordComparison(metrics);
+
+                    int next = edge.getTo();
                     if (!visited[next]) {
                         visited[next] = true;
                         stack.push(new DFSFrame(next));
+                        recordDepth(metrics, stack.size());
                     }
                 } else {
                     finishOrder[orderSize++] = frame.vertex;
@@ -53,7 +62,7 @@ public final class Kosaraju {
             }
         }
 
-        // Second DFS: traverse the reversed graph in reverse finish order.
+        // Second DFS on the reversed graph.
         Graph reversed = graph.reverse();
         Arrays.fill(visited, false);
 
@@ -72,17 +81,21 @@ public final class Kosaraju {
             stack.push(start);
             visited[start] = true;
             componentOf[start] = componentCount;
+            recordDepth(metrics, stack.size());
 
             while (!stack.isEmpty()) {
                 int vertex = stack.pop();
 
                 for (Edge edge : reversed.getAdjacentEdges(vertex)) {
-                    int next = edge.getTo();
+                    recordEdgeScan(metrics);
+                    recordComparison(metrics);
 
+                    int next = edge.getTo();
                     if (!visited[next]) {
                         visited[next] = true;
                         componentOf[next] = componentCount;
                         stack.push(next);
+                        recordDepth(metrics, stack.size());
                     }
                 }
             }
@@ -91,6 +104,24 @@ public final class Kosaraju {
         }
 
         return new SCCResult(componentCount, componentOf);
+    }
+
+    private static void recordEdgeScan(Metrics metrics) {
+        if (metrics != null) {
+            metrics.recordEdgeScan();
+        }
+    }
+
+    private static void recordComparison(Metrics metrics) {
+        if (metrics != null) {
+            metrics.recordComparison();
+        }
+    }
+
+    private static void recordDepth(Metrics metrics, int depth) {
+        if (metrics != null) {
+            metrics.recordDepth(depth);
+        }
     }
 
     private static final class DFSFrame {

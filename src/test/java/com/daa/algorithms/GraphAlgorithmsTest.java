@@ -162,4 +162,44 @@ class GraphAlgorithmsTest {
             );
         }
     }
+    @Test
+    void kosarajuRecordsMetricsOnLongPath() {
+        int n = 100_000;
+        Graph graph = new Graph(n, true);
+
+        for (int i = 0; i < n - 1; i++) {
+            graph.addEdge(i, i + 1, 1);
+        }
+
+        Metrics metrics = new Metrics();
+        SCCResult result = Kosaraju.findSCC(graph, metrics);
+
+        assertEquals(n, result.getComponentCount());
+        assertTrue(metrics.getEdgeScans() > 0);
+        assertTrue(metrics.getMaxDepth() > 0);
+    }
+
+    @Test
+    void kahnAndDagShortestPathRecordMetrics() {
+        Graph graph = new Graph(4, true);
+        graph.addEdge(0, 1, 2);
+        graph.addEdge(0, 2, 5);
+        graph.addEdge(1, 3, -4);
+        graph.addEdge(2, 3, 1);
+
+        Metrics kahnMetrics = new Metrics();
+        KahnResult order = Kahn.topologicalSort(graph, kahnMetrics);
+
+        assertTrue(order.isAcyclic());
+        assertTrue(kahnMetrics.getEdgeScans() > 0);
+        assertTrue(kahnMetrics.getComparisons() > 0);
+
+        Metrics pathMetrics = new Metrics();
+        DAGShortestPathResult paths =
+                DAGShortestPath.findShortestPaths(graph, pathMetrics);
+
+        assertEquals(-2, paths.getDistanceTo(3));
+        assertTrue(pathMetrics.getEdgeScans() > 0);
+        assertTrue(pathMetrics.getComparisons() > 0);
+    }
 }

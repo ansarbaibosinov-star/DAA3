@@ -1,6 +1,5 @@
 package com.daa.algorithms;
 
-
 import com.daa.graph.Edge;
 import com.daa.graph.Graph;
 
@@ -14,6 +13,10 @@ public final class Kruskal {
     }
 
     public static MSTResult findMST(Graph graph) {
+        return findMST(graph, null);
+    }
+
+    public static MSTResult findMST(Graph graph, Metrics metrics) {
         if (graph.isDirected()) {
             throw new IllegalArgumentException(
                     "Kruskal requires an undirected graph"
@@ -22,20 +25,27 @@ public final class Kruskal {
 
         List<Edge> sortedEdges = new ArrayList<>(graph.getEdges());
 
-        sortedEdges.sort(
-                Comparator.comparingInt(Edge::getWeight)
-        );
+        sortedEdges.sort((a, b) -> {
+            if (metrics != null) {
+                metrics.recordComparison();
+            }
+            return Integer.compare(a.getWeight(), b.getWeight());
+        });
 
-        DSU dsu = new DSU(graph.getVertexCount());
+        DSU dsu = new DSU(graph.getVertexCount(), metrics);
         List<Edge> selectedEdges = new ArrayList<>();
         long totalWeight = 0;
 
         for (Edge edge : sortedEdges) {
-            if (dsu.find(edge.getFrom())
-                    != dsu.find(edge.getTo())) {
+            if (metrics != null) {
+                metrics.recordEdgeScan();
+            }
 
-                dsu.union(edge.getFrom(), edge.getTo());
+            int rootFrom = dsu.find(edge.getFrom());
+            int rootTo = dsu.find(edge.getTo());
 
+            if (rootFrom != rootTo) {
+                dsu.union(rootFrom, rootTo);
                 selectedEdges.add(edge);
                 totalWeight += edge.getWeight();
             }
