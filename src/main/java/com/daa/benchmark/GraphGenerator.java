@@ -2,7 +2,9 @@ package com.daa.benchmark;
 
 import com.daa.graph.Graph;
 
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 public final class GraphGenerator {
 
@@ -16,21 +18,35 @@ public final class GraphGenerator {
     }
 
     public static Graph generate(int n, int m, Type type, long seed) {
-        if (n < 0 || m < 0) {
+        if (n < 0) {
             throw new IllegalArgumentException(
-                    "n and m must be non-negative"
+                    "Number of vertices cannot be negative"
             );
         }
 
-        if (n == 0 && m > 0) {
+        if (m < 0) {
             throw new IllegalArgumentException(
-                    "An empty graph cannot have edges"
+                    "Number of edges cannot be negative"
             );
         }
 
-        if (type == Type.DAG && (long) m > (long) n * (n - 1) / 2) {
+        if (type == null) {
             throw new IllegalArgumentException(
-                    "Too many edges for a simple DAG"
+                    "Graph type cannot be null"
+            );
+        }
+
+        long maxEdges;
+
+        if (type == Type.DIRECTED) {
+            maxEdges = (long) n * (n - 1);
+        } else {
+            maxEdges = (long) n * (n - 1) / 2;
+        }
+
+        if (m > maxEdges) {
+            throw new IllegalArgumentException(
+                    "Too many edges for this graph type"
             );
         }
 
@@ -40,22 +56,23 @@ public final class GraphGenerator {
             );
         }
 
-        Graph graph = new Graph(
-                n,
-                type != Type.UNDIRECTED
-        );
-
+        Graph graph = new Graph(n, type != Type.UNDIRECTED);
         Random random = new Random(seed);
+        Set<Long> usedEdges = new HashSet<>();
 
-        if (type == Type.UNDIRECTED && n > 1) {
-            // First create a connected spanning tree.
+        // For an undirected graph, first create a spanning tree.
+        // This guarantees that the graph is connected.
+        if (type == Type.UNDIRECTED) {
             for (int vertex = 1; vertex < n; vertex++) {
                 int parent = random.nextInt(vertex);
                 int weight = random.nextInt(201) - 100;
+
                 graph.addEdge(parent, vertex, weight);
+                usedEdges.add(edgeKey(parent, vertex, n, type));
             }
         }
 
+        // Add remaining edges without duplicates or self-loops.
         while (graph.getEdgeCount() < m) {
             int from = random.nextInt(n);
             int to = random.nextInt(n);
@@ -64,13 +81,16 @@ public final class GraphGenerator {
                 continue;
             }
 
-            if (type == Type.DAG) {
-                // All edges point from a smaller ID to a larger ID.
-                if (from > to) {
-                    int temp = from;
-                    from = to;
-                    to = temp;
-                }
+            if (type == Type.DAG && from > to) {
+                int temp = from;
+                from = to;
+                to = temp;
+            }
+
+            long key = edgeKey(from, to, n, type);
+
+            if (!usedEdges.add(key)) {
+                continue;
             }
 
             int weight = random.nextInt(201) - 100;
@@ -78,5 +98,20 @@ public final class GraphGenerator {
         }
 
         return graph;
+    }
+
+    private static long edgeKey(
+            int from,
+            int to,
+            int n,
+            Type type
+    ) {
+        if (type != Type.DIRECTED && from > to) {
+            int temp = from;
+            from = to;
+            to = temp;
+        }
+
+        return (long) from * n + to;
     }
 }

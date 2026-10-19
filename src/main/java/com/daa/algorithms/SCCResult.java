@@ -1,26 +1,20 @@
 package com.daa.algorithms;
 
-public final class SCCResult {
-    private final int componentCount;
+public class SCCResult {
+
+    private final int count;
     private final int[] componentOf;
 
-    public SCCResult(int componentCount, int[] componentOf) {
-        this.componentCount = componentCount;
+    public SCCResult(int count, int[] componentOf) {
+        this.count = count;
         this.componentOf = componentOf.clone();
     }
 
-    public int getComponentCount() {
-        return componentCount;
+    public int getCount() {
+        return count;
     }
 
-    public int getComponentOf(int vertex) {
-        if (vertex < 0 || vertex >= componentOf.length) {
-            throw new IndexOutOfBoundsException("Invalid vertex: " + vertex);
-        }
-        return componentOf[vertex];
-    }
-
-    public int[] getComponents() {
+    public int[] getComponentOf() {
         return componentOf.clone();
     }
 }
