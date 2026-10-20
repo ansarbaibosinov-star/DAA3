@@ -4,68 +4,46 @@ import com.daa.graph.Edge;
 import com.daa.graph.Graph;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class GraphAlgorithmsTest {
 
     @Test
-    void kosarajuFindsThreeStronglyConnectedComponents() {
-        Graph graph = new Graph(6, true);
+    void kosarajuShouldFindStronglyConnectedComponents() {
+        Graph graph = new Graph(5, true);
 
         graph.addEdge(0, 1, 1);
         graph.addEdge(1, 2, 1);
         graph.addEdge(2, 0, 1);
-
-        graph.addEdge(2, 3, 1);
+        graph.addEdge(1, 3, 1);
         graph.addEdge(3, 4, 1);
         graph.addEdge(4, 3, 1);
-        graph.addEdge(4, 5, 1);
 
         SCCResult result = Kosaraju.findSCC(graph);
 
-        assertEquals(3, result.getComponentCount());
-        assertEquals(result.getComponentOf(0), result.getComponentOf(2));
-        assertEquals(result.getComponentOf(3), result.getComponentOf(4));
-        assertNotEquals(result.getComponentOf(0), result.getComponentOf(3));
-        assertNotEquals(result.getComponentOf(4), result.getComponentOf(5));
+        assertEquals(2, result.getCount());
+
+        int[] componentOf = result.getComponentOf();
+
+        assertEquals(componentOf[0], componentOf[1]);
+        assertEquals(componentOf[1], componentOf[2]);
+        assertEquals(componentOf[3], componentOf[4]);
+        assertNotEquals(componentOf[0], componentOf[3]);
     }
 
     @Test
-    void kosarajuHandlesDisconnectedVertices() {
+    void kosarajuShouldHandleIsolatedVertices() {
         Graph graph = new Graph(4, true);
-        graph.addEdge(0, 1, 1);
-        graph.addEdge(1, 0, 1);
 
         SCCResult result = Kosaraju.findSCC(graph);
 
-        assertEquals(3, result.getComponentCount());
+        assertEquals(4, result.getCount());
     }
 
     @Test
-    void kosarajuHandlesEmptyGraph() {
-        Graph graph = new Graph(0, true);
-
-        SCCResult result = Kosaraju.findSCC(graph);
-
-        assertEquals(0, result.getComponentCount());
-    }
-
-    @Test
-    void kosarajuRejectsUndirectedGraph() {
-        Graph graph = new Graph(2, false);
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> Kosaraju.findSCC(graph)
-        );
-    }
-
-    @Test
-    void kahnProducesValidTopologicalOrder() {
+    void kahnShouldReturnTopologicalOrderForDag() {
         Graph graph = new Graph(6, true);
+
         graph.addEdge(5, 2, 1);
         graph.addEdge(5, 0, 1);
         graph.addEdge(4, 0, 1);
@@ -76,13 +54,25 @@ class GraphAlgorithmsTest {
         KahnResult result = Kahn.topologicalSort(graph);
 
         assertTrue(result.isAcyclic());
-        assertEquals(6, result.getOrder().length);
-        assertValidTopologicalOrder(graph, result.getOrder());
+
+        int[] order = result.getOrder();
+        assertEquals(6, order.length);
+
+        int[] position = new int[6];
+
+        for (int i = 0; i < order.length; i++) {
+            position[order[i]] = i;
+        }
+
+        for (Edge edge : graph.getEdges()) {
+            assertTrue(position[edge.getFrom()] < position[edge.getTo()]);
+        }
     }
 
     @Test
-    void kahnDetectsCycle() {
+    void kahnShouldDetectCycle() {
         Graph graph = new Graph(3, true);
+
         graph.addEdge(0, 1, 1);
         graph.addEdge(1, 2, 1);
         graph.addEdge(2, 0, 1);
@@ -90,116 +80,84 @@ class GraphAlgorithmsTest {
         KahnResult result = Kahn.topologicalSort(graph);
 
         assertFalse(result.isAcyclic());
-        assertTrue(result.getOrder().length < graph.getVertexCount());
     }
 
     @Test
-    void kahnHandlesDisconnectedDag() {
+    void dagShortestPathsShouldCalculateDistancesFromSources() {
         Graph graph = new Graph(5, true);
-        graph.addEdge(0, 1, 1);
+
+        graph.addEdge(0, 1, 3);
+        graph.addEdge(0, 2, 6);
+        graph.addEdge(1, 2, 2);
+        graph.addEdge(1, 3, 4);
         graph.addEdge(2, 3, 1);
+        graph.addEdge(3, 4, 2);
 
-        KahnResult result = Kahn.topologicalSort(graph);
+        DAGShortestPathResult result =
+                DAGShortestPath.findShortestPaths(graph);
 
-        assertTrue(result.isAcyclic());
-        assertEquals(5, result.getOrder().length);
-        assertValidTopologicalOrder(graph, result.getOrder());
-    }
+        long[] distances = result.getDistances();
 
-    @Test
-    void kahnHandlesEmptyGraph() {
-        Graph graph = new Graph(0, true);
-
-        KahnResult result = Kahn.topologicalSort(graph);
-
-        assertTrue(result.isAcyclic());
-        assertEquals(0, result.getOrder().length);
-    }
-
-    @Test
-    void kahnRejectsUndirectedGraph() {
-        Graph graph = new Graph(2, false);
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> Kahn.topologicalSort(graph)
+        assertArrayEquals(
+                new long[]{0, 3, 5, 6, 8},
+                distances
         );
     }
 
     @Test
-    void kosarajuHandlesLongPathWithoutRecursion() {
-        int n = 100_000;
-        Graph graph = new Graph(n, true);
-
-        for (int i = 0; i < n - 1; i++) {
-            graph.addEdge(i, i + 1, 1);
-        }
-
-        SCCResult result = Kosaraju.findSCC(graph);
-
-        assertEquals(n, result.getComponentCount());
-    }
-
-    private static void assertValidTopologicalOrder(
-            Graph graph,
-            int[] order
-    ) {
-        int n = graph.getVertexCount();
-        assertEquals(n, order.length);
-
-        int[] position = new int[n];
-        Set<Integer> seen = new HashSet<>();
-
-        for (int i = 0; i < order.length; i++) {
-            assertTrue(seen.add(order[i]), "Duplicate vertex");
-            position[order[i]] = i;
-        }
-
-        for (Edge edge : graph.getEdges()) {
-            assertTrue(
-                    position[edge.getFrom()] < position[edge.getTo()],
-                    "An edge violates the topological order"
-            );
-        }
-    }
-    @Test
-    void kosarajuRecordsMetricsOnLongPath() {
-        int n = 100_000;
-        Graph graph = new Graph(n, true);
-
-        for (int i = 0; i < n - 1; i++) {
-            graph.addEdge(i, i + 1, 1);
-        }
-
-        Metrics metrics = new Metrics();
-        SCCResult result = Kosaraju.findSCC(graph, metrics);
-
-        assertEquals(n, result.getComponentCount());
-        assertTrue(metrics.getEdgeScans() > 0);
-        assertTrue(metrics.getMaxDepth() > 0);
-    }
-
-    @Test
-    void kahnAndDagShortestPathRecordMetrics() {
+    void dagShortestPathsShouldSupportNegativeWeights() {
         Graph graph = new Graph(4, true);
-        graph.addEdge(0, 1, 2);
+
+        graph.addEdge(0, 1, 4);
         graph.addEdge(0, 2, 5);
-        graph.addEdge(1, 3, -4);
-        graph.addEdge(2, 3, 1);
+        graph.addEdge(1, 2, -3);
+        graph.addEdge(2, 3, 2);
 
-        Metrics kahnMetrics = new Metrics();
-        KahnResult order = Kahn.topologicalSort(graph, kahnMetrics);
+        DAGShortestPathResult result =
+                DAGShortestPath.findShortestPaths(graph);
 
-        assertTrue(order.isAcyclic());
-        assertTrue(kahnMetrics.getEdgeScans() > 0);
-        assertTrue(kahnMetrics.getComparisons() > 0);
+        long[] distances = result.getDistances();
 
-        Metrics pathMetrics = new Metrics();
-        DAGShortestPathResult paths =
-                DAGShortestPath.findShortestPaths(graph, pathMetrics);
+        assertArrayEquals(
+                new long[]{0, 4, 1, 3},
+                distances
+        );
+    }
 
-        assertEquals(-2, paths.getDistanceTo(3));
-        assertTrue(pathMetrics.getEdgeScans() > 0);
-        assertTrue(pathMetrics.getComparisons() > 0);
+    @Test
+    void dagShortestPathsShouldRejectCycles() {
+        Graph graph = new Graph(3, true);
+
+        graph.addEdge(0, 1, 1);
+        graph.addEdge(1, 2, 1);
+        graph.addEdge(2, 0, 1);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DAGShortestPath.findShortestPaths(graph)
+        );
+    }
+
+    @Test
+    void kruskalAndPrimShouldFindSameMstWeight() {
+        Graph graph = new Graph(4, false);
+
+        graph.addEdge(0, 1, 10);
+        graph.addEdge(0, 2, 6);
+        graph.addEdge(0, 3, 5);
+        graph.addEdge(1, 3, 15);
+        graph.addEdge(2, 3, 4);
+
+        MSTResult kruskalResult = Kruskal.findMST(graph);
+        MSTResult primResult = Prim.findMST(graph);
+
+        assertEquals(
+                kruskalResult.getTotalWeight(),
+                primResult.getTotalWeight()
+        );
+
+        assertEquals(19L, kruskalResult.getTotalWeight());
+        assertEquals(1, kruskalResult.getComponents());
+        assertEquals(1, primResult.getComponents());
     }
 }

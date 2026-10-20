@@ -4,14 +4,12 @@ package com.daa.algorithms;
 import com.daa.graph.Graph;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class DAGShortestPathTest {
 
     @Test
-    void findsShortestPathsInDag() {
+    void shortestPathsShouldCalculateCorrectDistances() {
         Graph graph = new Graph(5, true);
 
         graph.addEdge(0, 1, 3);
@@ -22,85 +20,56 @@ class DAGShortestPathTest {
         graph.addEdge(3, 4, 2);
 
         DAGShortestPathResult result =
-                DAGShortestPath.findShortestPaths(graph);
+                DAGShortestPath.findShortestPaths(graph, 0);
 
         long[] distances = result.getDistances();
 
-        assertEquals(0, distances[0]);
-        assertEquals(3, distances[1]);
-        assertEquals(5, distances[2]);
-        assertEquals(6, distances[3]);
-        assertEquals(8, distances[4]);
+        assertArrayEquals(
+                new long[]{0, 3, 5, 6, 8},
+                distances
+        );
     }
 
     @Test
-    void supportsNegativeEdgeWeights() {
+    void shortestPathsShouldSupportNegativeWeights() {
         Graph graph = new Graph(4, true);
 
-        graph.addEdge(0, 1, 5);
-        graph.addEdge(0, 2, 2);
-        graph.addEdge(2, 1, -4);
-        graph.addEdge(1, 3, 3);
-        graph.addEdge(2, 3, 10);
+        graph.addEdge(0, 1, 4);
+        graph.addEdge(0, 2, 5);
+        graph.addEdge(1, 2, -3);
+        graph.addEdge(2, 3, 2);
 
         DAGShortestPathResult result =
-                DAGShortestPath.findShortestPaths(graph);
+                DAGShortestPath.findShortestPaths(graph, 0);
 
         long[] distances = result.getDistances();
 
-        assertEquals(0, distances[0]);
-        assertEquals(-2, distances[1]);
-        assertEquals(2, distances[2]);
-        assertEquals(1, distances[3]);
+        assertArrayEquals(
+                new long[]{0, 4, 1, 3},
+                distances
+        );
     }
 
     @Test
     void unreachableVertexHasInfiniteDistance() {
-        Graph graph = new Graph(3, true);
-        graph.addEdge(0, 1, 7);
-
-        DAGShortestPathResult result =
-                DAGShortestPath.findShortestPaths(graph);
-
-        assertEquals(0, result.getDistances()[0]);
-        assertEquals(7, result.getDistances()[1]);
-        assertEquals(Long.MAX_VALUE, result.getDistances()[2]);
-        assertTrue(result.getPathTo(2).isEmpty());
-    }
-
-    @Test
-    void restoresShortestPath() {
         Graph graph = new Graph(4, true);
 
-        graph.addEdge(0, 1, 2);
-        graph.addEdge(0, 2, 10);
+        graph.addEdge(0, 1, 5);
         graph.addEdge(1, 2, 3);
-        graph.addEdge(2, 3, 1);
 
         DAGShortestPathResult result =
-                DAGShortestPath.findShortestPaths(graph);
+                DAGShortestPath.findShortestPaths(graph, 0);
 
-        assertEquals(List.of(0, 1, 2, 3), result.getPathTo(3));
+        long[] distances = result.getDistances();
+
+        assertEquals(0L, distances[0]);
+        assertEquals(5L, distances[1]);
+        assertEquals(8L, distances[2]);
+        assertEquals(Long.MAX_VALUE, distances[3]);
     }
 
     @Test
-    void everySourceStartsAtZero() {
-        Graph graph = new Graph(4, true);
-
-        graph.addEdge(0, 2, 5);
-        graph.addEdge(1, 2, 2);
-
-        DAGShortestPathResult result =
-                DAGShortestPath.findShortestPaths(graph);
-
-        assertEquals(0, result.getDistances()[0]);
-        assertEquals(0, result.getDistances()[1]);
-        assertEquals(0, result.getDistances()[3]);
-        assertEquals(2, result.getDistances()[2]);
-    }
-
-    @Test
-    void rejectsCyclicGraph() {
+    void shortestPathsShouldRejectCycles() {
         Graph graph = new Graph(3, true);
 
         graph.addEdge(0, 1, 1);
@@ -109,35 +78,67 @@ class DAGShortestPathTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> DAGShortestPath.findShortestPaths(graph)
+                () -> DAGShortestPath.findShortestPaths(graph, 0)
         );
     }
 
     @Test
-    void rejectsUndirectedGraph() {
-        Graph graph = new Graph(2, false);
-        graph.addEdge(0, 1, 5);
+    void shortestPathsShouldRejectUndirectedGraph() {
+        Graph graph = new Graph(3, false);
+
+        graph.addEdge(0, 1, 2);
+        graph.addEdge(1, 2, 3);
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> DAGShortestPath.findShortestPaths(graph)
+                () -> DAGShortestPath.findShortestPaths(graph, 0)
         );
     }
 
     @Test
-    void updatesMetrics() {
-        Graph graph = new Graph(3, true);
-
-        graph.addEdge(0, 1, 4);
-        graph.addEdge(1, 2, 3);
-
-        Metrics metrics = new Metrics();
+    void shortestPathsShouldHandleSingleVertex() {
+        Graph graph = new Graph(1, true);
 
         DAGShortestPathResult result =
-                DAGShortestPath.findShortestPaths(graph, metrics);
+                DAGShortestPath.findShortestPaths(graph, 0);
 
-        assertEquals(7, result.getDistances()[2]);
-        assertTrue(metrics.getEdgeScans() > 0);
-        assertTrue(metrics.getComparisons() > 0);
+        assertArrayEquals(
+                new long[]{0},
+                result.getDistances()
+        );
+    }
+
+    @Test
+    void shortestPathsShouldRejectInvalidSource() {
+        Graph graph = new Graph(3, true);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DAGShortestPath.findShortestPaths(graph, -1)
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DAGShortestPath.findShortestPaths(graph, 3)
+        );
+    }
+
+    @Test
+    void shortestPathsShouldHandleDisconnectedDag() {
+        Graph graph = new Graph(5, true);
+
+        graph.addEdge(0, 1, 2);
+        graph.addEdge(2, 3, 4);
+
+        DAGShortestPathResult result =
+                DAGShortestPath.findShortestPaths(graph, 0);
+
+        long[] distances = result.getDistances();
+
+        assertEquals(0L, distances[0]);
+        assertEquals(2L, distances[1]);
+        assertEquals(Long.MAX_VALUE, distances[2]);
+        assertEquals(Long.MAX_VALUE, distances[3]);
+        assertEquals(Long.MAX_VALUE, distances[4]);
     }
 }

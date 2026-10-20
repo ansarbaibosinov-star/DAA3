@@ -1,3 +1,4 @@
+
 package com.daa.algorithms;
 
 import com.daa.graph.Edge;
@@ -10,6 +11,10 @@ public final class DAGShortestPath {
     private DAGShortestPath() {
     }
 
+    /**
+     * Calculates shortest distances from all source vertices
+     * (vertices with zero incoming edges).
+     */
     public static DAGShortestPathResult findShortestPaths(Graph graph) {
         return findShortestPaths(graph, null);
     }
@@ -25,12 +30,54 @@ public final class DAGShortestPath {
         }
 
         int n = graph.getVertexCount();
-        KahnResult topologicalResult =
-                Kahn.topologicalSort(graph, metrics);
+        int[] inDegree = new int[n];
 
-        if (!topologicalResult.isAcyclic()) {
+        for (Edge edge : graph.getEdges()) {
+            inDegree[edge.getTo()]++;
+        }
+
+        long[] distances = new long[n];
+        int[] parents = new int[n];
+
+        Arrays.fill(distances, Long.MAX_VALUE);
+        Arrays.fill(parents, -1);
+
+        for (int vertex = 0; vertex < n; vertex++) {
+            if (inDegree[vertex] == 0) {
+                distances[vertex] = 0;
+            }
+        }
+
+        return calculate(graph, distances, parents, metrics);
+    }
+
+    /**
+     * Calculates shortest distances from one specified source vertex.
+     * Vertices unreachable from the source retain Long.MAX_VALUE.
+     */
+    public static DAGShortestPathResult findShortestPaths(
+            Graph graph,
+            int source
+    ) {
+        return findShortestPaths(graph, source, null);
+    }
+
+    public static DAGShortestPathResult findShortestPaths(
+            Graph graph,
+            int source,
+            Metrics metrics
+    ) {
+        if (!graph.isDirected()) {
             throw new IllegalArgumentException(
-                    "Shortest paths require an acyclic graph"
+                    "DAG shortest paths require a directed graph"
+            );
+        }
+
+        int n = graph.getVertexCount();
+
+        if (source < 0 || source >= n) {
+            throw new IllegalArgumentException(
+                    "Source vertex is out of range"
             );
         }
 
@@ -40,15 +87,24 @@ public final class DAGShortestPath {
         Arrays.fill(distances, Long.MAX_VALUE);
         Arrays.fill(parents, -1);
 
-        int[] inDegree = new int[n];
-        for (Edge edge : graph.getEdges()) {
-            inDegree[edge.getTo()]++;
-        }
+        distances[source] = 0;
 
-        for (int vertex = 0; vertex < n; vertex++) {
-            if (inDegree[vertex] == 0) {
-                distances[vertex] = 0;
-            }
+        return calculate(graph, distances, parents, metrics);
+    }
+
+    private static DAGShortestPathResult calculate(
+            Graph graph,
+            long[] distances,
+            int[] parents,
+            Metrics metrics
+    ) {
+        KahnResult topologicalResult =
+                Kahn.topologicalSort(graph, metrics);
+
+        if (!topologicalResult.isAcyclic()) {
+            throw new IllegalArgumentException(
+                    "Shortest paths require an acyclic graph"
+            );
         }
 
         for (int vertex : topologicalResult.getOrder()) {
@@ -63,7 +119,20 @@ public final class DAGShortestPath {
                 }
 
                 int next = edge.getTo();
-                long candidate = distances[vertex] + edge.getWeight();
+                long weight = edge.getWeight();
+
+                // Prevent overflow when adding a weight.
+                if (weight > 0
+                        && distances[vertex] > Long.MAX_VALUE - weight) {
+                    continue;
+                }
+
+                if (weight < 0
+                        && distances[vertex] < Long.MIN_VALUE - weight) {
+                    continue;
+                }
+
+                long candidate = distances[vertex] + weight;
 
                 if (candidate < distances[next]) {
                     distances[next] = candidate;
